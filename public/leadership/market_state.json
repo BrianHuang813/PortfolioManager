@@ -1,12 +1,12 @@
 {
-  "date": "2026-10-13",
+  "date": "2026-10-14",
   "benchmark": "SPY",
-  "close": 778.010009765625,
+  "close": 769.5999755859375,
   "high_200d": 779.0900268554688,
-  "days_since_200d_high": 5,
-  "drawdown_from_200d_high": -0.0013862545439105034,
-  "ma50": 767.386396484375,
-  "ma200": 720.6000897216796,
+  "days_since_200d_high": 6,
+  "drawdown_from_200d_high": -0.012180943077701345,
+  "ma50": 767.3900085449219,
+  "ma200": 721.0232913208008,
   "utility_active": false,
   "utility_window": null,
   "state": "NORMAL"
