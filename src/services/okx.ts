@@ -108,6 +108,20 @@ async function fetchSavingsBalance(cfg: OKXConfig): Promise<OKXDetail[]> {
     .map((s) => ({ ccy: s.ccy, eq: s.amt, eqUsd: '0' }))
 }
 
+// Flexible Loan (質押借幣) — /api/v5/finance/flexible-loan/loan-info
+// TEMP (debt tracking, phase 1): response schema is unverified, so only log the raw JSON.
+// Routed through Vercel proxy like savings.
+async function logFlexibleLoanInfo(cfg: OKXConfig): Promise<void> {
+  const path = '/api/v5/finance/flexible-loan/loan-info'
+  const headers = await buildOKXHeaders(cfg, 'GET', path)
+  const res = await fetch(`/api/okx?path=${encodeURIComponent(path)}`, { headers })
+  if (!res.ok) {
+    console.log('[OKX loan] fetch failed:', res.status)
+    return
+  }
+  console.log('[OKX loan] raw:', JSON.stringify(await res.json()))
+}
+
 export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
   const raw = getConfig<OKXConfig>(STORAGE_KEYS.okx)
   console.log('[OKX] config loaded:', raw ? `apiKey=${raw.apiKey?.slice(0,6)}… secret=${raw.secret ? 'set' : 'missing'}` : 'null')
@@ -129,6 +143,9 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
     fetchSavingsBalance(cfg).catch((e) => {
       console.log('[OKX savings] error (non-fatal):', e)
       return [] as OKXDetail[]
+    }),
+    logFlexibleLoanInfo(cfg).catch((e) => {
+      console.log('[OKX loan] error (non-fatal):', e)
     }),
   ])
 

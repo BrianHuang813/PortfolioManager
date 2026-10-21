@@ -83,10 +83,13 @@ export interface ZerionPositionAttributes {
     symbol: string
     name: string
   }
+  position_type?: string        // wallet | deposit | loan | staked | locked | reward | investment
+  protocol?: string | null
 }
 
 export interface ZerionPosition {
   attributes: ZerionPositionAttributes
+  relationships?: { dapp?: { data?: { id: string } } }  // e.g. "aave-v3"
 }
 
 export function normalizeZerion(pos: ZerionPosition, walletAddress: string): HoldingRecord {

@@ -18,6 +18,7 @@ interface ZerionResponse {
 async function fetchWalletPositions(
   address: string,
   apiKey: string,
+  positions?: 'no_filter',
 ): Promise<ZerionPosition[]> {
   // Always use the server-side proxy — avoids CORS regardless of environment
   const credential = btoa(`${apiKey}:`)
@@ -27,7 +28,7 @@ async function fetchWalletPositions(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ address, credential }),
+    body: JSON.stringify(positions ? { address, credential, positions } : { address, credential }),
   })
 
   if (!res.ok) {
@@ -38,6 +39,29 @@ async function fetchWalletPositions(
   }
   const data = await res.json() as ZerionResponse
   return data.data ?? []
+}
+
+// TEMP (debt tracking, phase 1): log simple vs no_filter positions to see how
+// Aave deposits/loans come back and whether any appear twice. Holdings are unchanged.
+async function logPositionsForDebtCheck(
+  address: string,
+  apiKey: string,
+  simple: ZerionPosition[],
+): Promise<void> {
+  const short = `${address.slice(0, 6)}...${address.slice(-4)}`
+  const fmt = (p: ZerionPosition) => {
+    const a = p.attributes
+    return `${a.fungible_info.symbol} type=${a.position_type ?? '?'} protocol=${a.protocol ?? '-'}` +
+      ` dapp=${p.relationships?.dapp?.data?.id ?? '-'} qty=${a.quantity?.float ?? 0} value=${a.value ?? 0}`
+  }
+  simple.forEach((p) => console.log(`[Zerion simple] ${short} ${fmt(p)}`))
+  try {
+    await new Promise((r) => setTimeout(r, 600)) // rate limit, same as main loop
+    const all = await fetchWalletPositions(address, apiKey, 'no_filter')
+    all.forEach((p) => console.log(`[Zerion no_filter] ${short} ${fmt(p)}`))
+  } catch (e) {
+    console.log('[Zerion no_filter] error (non-fatal):', e)
+  }
 }
 
 export async function fetchZerionHoldings(): Promise<HoldingRecord[]> {
@@ -77,6 +101,11 @@ export async function fetchZerionHoldings(): Promise<HoldingRecord[]> {
     throw failed.reason instanceof Error
       ? failed.reason
       : new Error(String(failed.reason))
+  }
+
+  for (let i = 0; i < addresses.length; i++) {
+    const result = results[i]!
+    if (result.status === 'fulfilled') await logPositionsForDebtCheck(addresses[i]!, apiKey, result.value)
   }
 
   const holdings: HoldingRecord[] = []
