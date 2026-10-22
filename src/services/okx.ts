@@ -3,7 +3,7 @@
 
 import { getConfig } from '../utils/storage'
 import { hmacSHA256, okxTimestamp } from '../utils/crypto'
-import { normalizeOKX, type OKXDetail } from '../utils/normalize'
+import { normalizeOKX, normalizeOKXDebt, type OKXDetail } from '../utils/normalize'
 import { STORAGE_KEYS } from '../config/constants'
 import type { HoldingRecord } from '../types/holdings'
 
@@ -108,18 +108,44 @@ async function fetchSavingsBalance(cfg: OKXConfig): Promise<OKXDetail[]> {
     .map((s) => ({ ccy: s.ccy, eq: s.amt, eqUsd: '0' }))
 }
 
+interface OKXFlexibleLoan {
+  collateralData: Array<{ ccy: string; amt: string }>
+  loanData: Array<{ ccy: string; amt: string }>
+}
+
+interface OKXLoanDetails {
+  collateral: OKXDetail[]
+  loans: OKXDetail[]
+}
+
 // Flexible Loan (質押借幣) — /api/v5/finance/flexible-loan/loan-info
-// TEMP (debt tracking, phase 1): response schema is unverified, so only log the raw JSON.
+// Collateral is locked out of trading/funding balances, so it is counted from here.
 // Routed through Vercel proxy like savings.
-async function logFlexibleLoanInfo(cfg: OKXConfig): Promise<void> {
+async function fetchFlexibleLoan(cfg: OKXConfig): Promise<OKXLoanDetails> {
+  const empty: OKXLoanDetails = { collateral: [], loans: [] }
   const path = '/api/v5/finance/flexible-loan/loan-info'
   const headers = await buildOKXHeaders(cfg, 'GET', path)
   const res = await fetch(`/api/okx?path=${encodeURIComponent(path)}`, { headers })
   if (!res.ok) {
     console.log('[OKX loan] fetch failed:', res.status)
-    return
+    return empty
   }
-  console.log('[OKX loan] raw:', JSON.stringify(await res.json()))
+
+  const data = await res.json() as { code: string; msg: string; data: OKXFlexibleLoan[] }
+  console.log('[OKX loan] code:', data.code, 'msg:', data.msg, 'count:', data.data?.length ?? 0)
+  if (data.code !== '0') {
+    console.log('[OKX loan] skipping:', data.code, data.msg)
+    return empty
+  }
+
+  const toDetails = (items: Array<{ ccy: string; amt: string }>): OKXDetail[] => items
+    .filter((i) => parseFloat(i.amt) > 0)
+    .map((i) => ({ ccy: i.ccy, eq: i.amt, eqUsd: '0' }))
+  const orders = data.data ?? []
+  return {
+    collateral: toDetails(orders.flatMap((o) => o.collateralData ?? [])),
+    loans: toDetails(orders.flatMap((o) => o.loanData ?? [])),
+  }
 }
 
 export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
@@ -133,8 +159,8 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
   }
   if (!cfg.apiKey || !cfg.secret) return []
 
-  // Fetch trading, funding, and savings in parallel; funding/savings errors are non-fatal
-  const [tradingDetails, fundingDetails, savingsDetails] = await Promise.all([
+  // Fetch trading, funding, savings, and flexible loan in parallel; all but trading are non-fatal
+  const [tradingDetails, fundingDetails, savingsDetails, loanDetails] = await Promise.all([
     fetchTradingBalance(cfg),
     fetchFundingBalance(cfg).catch((e) => {
       console.log('[OKX funding] error (non-fatal):', e)
@@ -144,19 +170,20 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
       console.log('[OKX savings] error (non-fatal):', e)
       return [] as OKXDetail[]
     }),
-    logFlexibleLoanInfo(cfg).catch((e) => {
+    fetchFlexibleLoan(cfg).catch((e): OKXLoanDetails => {
       console.log('[OKX loan] error (non-fatal):', e)
+      return { collateral: [], loans: [] }
     }),
   ])
 
-  // Merge all three: deduplicate by ccy, prefer trading (has eqUsd) over funding/savings
+  // Merge trading, funding, savings, and loan collateral: deduplicate by ccy, prefer trading (has eqUsd)
   // Track ccys whose qty was bumped from funding/savings — these need price re-lookup
   // even if trading had a tiny eqUsd from dust (e.g. LINK: trading dust + funding 1.73 LINK)
   const tradingMap = new Map(tradingDetails.map((d) => [d.ccy, d]))
   const merged = [...tradingDetails]
   const needsPriceLookup = new Set<string>()
 
-  for (const fd of [...fundingDetails, ...savingsDetails]) {
+  for (const fd of [...fundingDetails, ...savingsDetails, ...loanDetails.collateral]) {
     if (!tradingMap.has(fd.ccy)) {
       merged.push(fd)
       tradingMap.set(fd.ccy, fd)
@@ -173,9 +200,11 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
   console.log('[OKX] total merged count:', merged.length)
 
   // Fetch market prices for items in needsPriceLookup set (funding/savings items, or merged qty)
-  const needsPrice = merged.filter(
-    (d) => needsPriceLookup.has(d.ccy) && parseFloat(d.eq) > 0,
-  )
+  // plus borrowed amounts, which are valued the same way and negated below
+  const needsPrice = [
+    ...merged.filter((d) => needsPriceLookup.has(d.ccy) && parseFloat(d.eq) > 0),
+    ...loanDetails.loans,
+  ]
 
   if (needsPrice.length > 0) {
     await Promise.allSettled(
@@ -216,5 +245,9 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
   )
 
   console.log('[OKX] non-zero (with USD value) count:', nonZero.length)
-  return nonZero.map(normalizeOKX)
+
+  const debts = loanDetails.loans.filter((d) => parseFloat(d.eqUsd ?? '0') > 0.01)
+  debts.forEach((d) => console.log(`[OKX]   loan ${d.ccy}: amt=${d.eq} eqUsd=-${d.eqUsd}`))
+
+  return [...nonZero.map(normalizeOKX), ...debts.map(normalizeOKXDebt)]
 }

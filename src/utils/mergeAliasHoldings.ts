@@ -25,8 +25,11 @@ function canonicalSymbol(symbol: string): string {
 
 export function mergeAliasHoldings(holdings: HoldingRecord[]): HoldingRecord[] {
   const groups = new Map<string, HoldingRecord[]>()
+  // Debt rows stay separate so a loan never nets against an asset of the same symbol
+  const debts = holdings.filter((h) => h.isDebt)
 
   for (const h of holdings) {
+    if (h.isDebt) continue
     const key = `${h.type}:${canonicalSymbol(h.symbol)}`
     const group = groups.get(key) ?? []
     group.push(h)
@@ -69,5 +72,5 @@ export function mergeAliasHoldings(holdings: HoldingRecord[]): HoldingRecord[] {
     })
   }
 
-  return result
+  return [...result, ...debts]
 }

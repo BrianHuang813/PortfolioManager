@@ -43,7 +43,8 @@ export function AllocationCharts({ holdings }: Props) {
   const allocationBySymbol = (assetType?: HoldingRecord['type']) => {
     const t: Record<string, number> = {}
     holdings
-      .filter((h) => !assetType || h.type === assetType)
+      // Pies show what is held; borrowed amounts (negative) would break the slices
+      .filter((h) => !h.isDebt && (!assetType || h.type === assetType))
       .forEach((h) => { t[h.symbol] = (t[h.symbol] ?? 0) + h.marketValue })
     const sorted = Object.entries(t).sort(([, a], [, b]) => b - a)
     const top = sorted.slice(0, 9).map(([name, value]) => ({ name, value }))

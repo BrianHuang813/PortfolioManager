@@ -62,7 +62,7 @@ export function HoldingsTable({ holdings, isLoading }: Props) {
   }, [typeTotals])
 
   const filtered = useMemo(() => {
-    let rows = holdings.filter((h) => h.marketValue >= 10)
+    let rows = holdings.filter((h) => Math.abs(h.marketValue) >= 10)
     const q = tableFilters.search.toLowerCase()
     if (q) rows = rows.filter((h) =>
       h.symbol.toLowerCase().includes(q) || h.name.toLowerCase().includes(q))
@@ -157,6 +157,9 @@ export function HoldingsTable({ holdings, isLoading }: Props) {
                     <td className="px-4 py-3">
                       <div className="font-body font-semibold text-primary text-label-lg group-hover:text-gain" style={{ transition: 'none' }}>
                         {h.symbol}
+                        {h.isDebt && (
+                          <span className="ml-2 font-body text-label-sm text-loss uppercase tracking-[0.06em]">Loan</span>
+                        )}
                       </div>
                       <div className="font-body text-label-sm text-muted truncate max-w-[10rem]">
                         {h.name}
@@ -172,7 +175,7 @@ export function HoldingsTable({ holdings, isLoading }: Props) {
 
                     {/* Qty */}
                     <td className="px-4 py-3 text-right font-body text-label-md text-on-s tabular-nums">
-                      {h.qty < 1 ? h.qty.toFixed(4) : h.qty.toFixed(2)}
+                      {Math.abs(h.qty) < 1 ? h.qty.toFixed(4) : h.qty.toFixed(2)}
                     </td>
 
                     {/* Avg Cost */}
@@ -181,7 +184,7 @@ export function HoldingsTable({ holdings, isLoading }: Props) {
                     </td>
 
                     {/* Market Value */}
-                    <td className="px-4 py-3 text-right font-body font-semibold text-primary text-label-md tabular-nums">
+                    <td className={`px-4 py-3 text-right font-body font-semibold text-label-md tabular-nums ${h.isDebt ? 'text-loss' : 'text-primary'}`}>
                       {h.marketValue > 999_999 ? fmtCompact.format(h.marketValue) : fmtUSD.format(h.marketValue)}
                     </td>
 

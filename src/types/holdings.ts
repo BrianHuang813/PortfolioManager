@@ -16,6 +16,7 @@ export interface HoldingRecord {
   type: AssetType
   lastUpdated: string         // ISO 8601
   sourceWallet?: string       // Zerion only: shortened "0x123...abc"
+  isDebt?: boolean            // borrowed amount (OKX flexible loan, DeFi loan); qty and marketValue are negative
 }
 
 export interface DailySnapshot {

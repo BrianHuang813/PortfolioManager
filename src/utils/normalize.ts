@@ -71,6 +71,12 @@ export function normalizeOKX(detail: OKXDetail): HoldingRecord {
   }
 }
 
+// Borrowed amount (OKX flexible loan) — negative qty/value so totals show net worth
+export function normalizeOKXDebt(detail: OKXDetail): HoldingRecord {
+  const h = normalizeOKX(detail)
+  return { ...h, qty: -h.qty, marketValue: -h.marketValue, isDebt: true }
+}
+
 // ─── Zerion ────────────────────────────────────────────────────────────────
 
 export interface ZerionPositionAttributes {
@@ -96,8 +102,11 @@ export function normalizeZerion(pos: ZerionPosition, walletAddress: string): Hol
   const { attributes } = pos
   const symbol = attributes.fungible_info.symbol ?? ''
   const name = attributes.fungible_info.name ?? symbol
-  const qty = attributes.quantity?.float ?? 0
-  const marketValue = attributes.value ?? 0
+  // Protocol loans (e.g. Aave borrow) are debt — stored negative so totals show net worth
+  const isDebt = attributes.position_type === 'loan'
+  const sign = isDebt ? -1 : 1
+  const qty = sign * Math.abs(attributes.quantity?.float ?? 0)
+  const marketValue = sign * Math.abs(attributes.value ?? 0)
   // Zerion doesn't provide cost basis; default to 0 (PnL unavailable)
   const costBasis = 0
   const unrealizedPL = 0
@@ -119,6 +128,7 @@ export function normalizeZerion(pos: ZerionPosition, walletAddress: string): Hol
     type: 'crypto',
     lastUpdated: new Date().toISOString(),
     sourceWallet: short,
+    ...(isDebt && { isDebt }),
   }
 }
 

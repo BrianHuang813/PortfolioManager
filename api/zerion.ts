@@ -5,8 +5,6 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
-const POSITION_FILTERS = ['only_simple', 'only_complex', 'no_filter']
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS — allow requests from any origin (this is our own proxy)
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -25,8 +23,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     : req.body as unknown
   const address = isRequestBody(body) ? body.address : undefined
   const credential = isRequestBody(body) ? body.credential : undefined
-  const requested = isRequestBody(body) ? body.positions : undefined
-  const positions = requested && POSITION_FILTERS.includes(requested) ? requested : 'only_simple'
 
   if (!address) {
     return res.status(400).json({ error: 'Missing wallet address' })
@@ -35,7 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing Zerion credential' })
   }
 
-  const url  = `https://api.zerion.io/v1/wallets/${address}/positions/?filter[positions]=${positions}&currency=usd&filter[trash]=only_non_trash&sort=-value`
+  // no_filter: wallet tokens plus DeFi protocol positions (deposits, loans, staking)
+  const url  = `https://api.zerion.io/v1/wallets/${address}/positions/?filter[positions]=no_filter&currency=usd&filter[trash]=only_non_trash&sort=-value`
 
   try {
     const upstream = await fetch(url, {
@@ -54,7 +51,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 function isRequestBody(value: unknown): value is {
   address?: string
   credential?: string
-  positions?: string
 } {
   return typeof value === 'object' && value !== null
 }

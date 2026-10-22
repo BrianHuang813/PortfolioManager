@@ -40,6 +40,29 @@ describe('fetchZerionHoldings', () => {
     )
   })
 
+  it('includes a protocol loan as a negative holding', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ data: [{
+        attributes: {
+          value: 500,
+          quantity: { float: 500 },
+          price: 1,
+          changes: null,
+          flags: { is_spam: false },
+          fungible_info: { symbol: 'USDC', name: 'USD Coin' },
+          position_type: 'loan',
+          protocol: 'Aave V3',
+        },
+      }] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    )))
+
+    const holdings = await fetchZerionHoldings()
+
+    expect(holdings).toHaveLength(1)
+    expect(holdings[0]).toMatchObject({ symbol: 'USDC', marketValue: -500, isDebt: true })
+  })
+
   it('includes the proxy response when authentication fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
       JSON.stringify({ error: 'Missing Zerion credential' }),

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeSchwab, normalizeOKX, normalizeZerion, normalizeFutuPosition } from '../utils/normalize'
+import { normalizeSchwab, normalizeOKX, normalizeOKXDebt, normalizeZerion, normalizeFutuPosition } from '../utils/normalize'
 import type { SchwabPosition, OKXDetail, ZerionPosition } from '../utils/normalize'
 import { parseManualHoldings, toManualHoldingRecord } from '../services/manual'
 
@@ -75,6 +75,56 @@ describe('normalizeZerion', () => {
     expect(result.marketValue).toBe(1000)
     expect(result.platform).toBe('zerion')
     expect(result.sourceWallet).toBe('0xabc1...f456')
+  })
+
+  it('keeps a protocol deposit as a positive asset', () => {
+    const pos: ZerionPosition = {
+      attributes: {
+        value: 143.98,
+        quantity: { float: 0.06 },
+        price: 2399.7,
+        changes: null,
+        flags: { is_spam: false },
+        fungible_info: { symbol: 'stETH', name: 'Lido Staked ETH' },
+        position_type: 'deposit',
+        protocol: 'LIDO',
+      },
+    }
+    const result = normalizeZerion(pos, '0xabc123def456')
+    expect(result.qty).toBe(0.06)
+    expect(result.marketValue).toBe(143.98)
+    expect(result.isDebt).toBeUndefined()
+  })
+
+  it('stores a protocol loan as a negative debt', () => {
+    const pos: ZerionPosition = {
+      attributes: {
+        value: 500,
+        quantity: { float: 500 },
+        price: 1,
+        changes: null,
+        flags: { is_spam: false },
+        fungible_info: { symbol: 'USDC', name: 'USD Coin' },
+        position_type: 'loan',
+        protocol: 'Aave V3',
+      },
+    }
+    const result = normalizeZerion(pos, '0xabc123def456')
+    expect(result.qty).toBe(-500)
+    expect(result.marketValue).toBe(-500)
+    expect(result.isDebt).toBe(true)
+  })
+})
+
+describe('normalizeOKXDebt', () => {
+  it('stores a borrowed amount as negative qty and value', () => {
+    const result = normalizeOKXDebt({ ccy: 'USDT', eq: '2541.23', eqUsd: '2541.23' })
+    expect(result.symbol).toBe('USDT')
+    expect(result.qty).toBe(-2541.23)
+    expect(result.marketValue).toBe(-2541.23)
+    expect(result.unrealizedPL).toBe(0)
+    expect(result.platform).toBe('okx')
+    expect(result.isDebt).toBe(true)
   })
 })
 
