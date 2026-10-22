@@ -12,7 +12,7 @@ export function SettingsForm() {
 
   const [schwab,   setSchwab]   = useState({ appKey: '', appSecret: '', refreshToken: '' })
   const [okx,      setOkx]      = useState({ apiKey: '', secret: '', passphrase: '' })
-  const [zerion,   setZerion]   = useState({ apiKey: '', walletAddresses: '' })
+  const [zerion,   setZerion]   = useState({ apiKey: '', walletAddresses: '', aaveAppBalance: '' })
   const [finnhub,  setFinnhub]  = useState({ apiKey: '' })
   const [futu,     setFutu]     = useState({ bridgeUrl: '', token: '' })
   const [manual,   setManual]   = useState({ holdings: '' })
@@ -24,7 +24,7 @@ export function SettingsForm() {
     const o = getConfig<typeof okx>(STORAGE_KEYS.okx)
     if (o) { setOkx(o); setSaved((p) => ({ ...p, okx: true })) }
     const z = getConfig<typeof zerion>(STORAGE_KEYS.zerion)
-    if (z) { setZerion(z); setSaved((p) => ({ ...p, zerion: true })) }
+    if (z) { setZerion((s) => ({ ...s, ...z })); setSaved((p) => ({ ...p, zerion: true })) }
     const f = getConfig<typeof finnhub>(STORAGE_KEYS.finnhub)
     if (f) { setFinnhub(f); setSaved((p) => ({ ...p, finnhub: true })) }
     const fu = getConfig<typeof futu>(STORAGE_KEYS.futu)
@@ -91,6 +91,7 @@ export function SettingsForm() {
         fields={[
           { key: 'apiKey',         label: 'API Key',          type: 'password', placeholder: 'zerion_api_key_…' },
           { key: 'walletAddresses',label: 'Wallet Addresses', placeholder: '0xabc…, 0xdef… (comma-separated)' },
+          { key: 'aaveAppBalance', label: 'Aave App Balance (USD, copy from the app)', placeholder: '2439.25' },
         ]}
         values={zerion}
         onChange={(k, v) => setZerion((s) => ({ ...s, [k]: v }))}

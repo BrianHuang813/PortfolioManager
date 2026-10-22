@@ -63,6 +63,36 @@ describe('fetchZerionHoldings', () => {
     expect(holdings[0]).toMatchObject({ symbol: 'USDC', marketValue: -500, isDebt: true })
   })
 
+  it('adds the manually entered Aave App balance as a USD holding', async () => {
+    store.cfg_zerion = JSON.stringify({
+      apiKey: 'test-api-key',
+      walletAddresses: '',
+      aaveAppBalance: '2439.25',
+    })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const holdings = await fetchZerionHoldings()
+
+    expect(holdings).toHaveLength(1)
+    expect(holdings[0]).toMatchObject({
+      symbol: 'USD',
+      name: 'Aave App',
+      qty: 2439.25,
+      marketValue: 2439.25,
+      platform: 'zerion',
+      type: 'crypto',
+    })
+  })
+
+  it('adds no Aave App holding when no balance is entered', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ data: [] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    )))
+
+    expect(await fetchZerionHoldings()).toEqual([])
+  })
+
   it('includes the proxy response when authentication fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
       JSON.stringify({ error: 'Missing Zerion credential' }),
