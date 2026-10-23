@@ -1,17 +1,17 @@
 {
-  "run_date": "2026-10-21",
+  "run_date": "2026-10-22",
   "universe_size": 6949,
-  "processed_tickers": 6735,
-  "failed_tickers": 214,
-  "fetch_failed_tickers": 1,
-  "stale_tickers": 213,
-  "annual_rs_valid_count": 5620,
+  "processed_tickers": 6786,
+  "failed_tickers": 163,
+  "fetch_failed_tickers": 0,
+  "stale_tickers": 163,
+  "annual_rs_valid_count": 5624,
   "utility_active": false,
   "utility_window": null,
   "utility_rs_valid_count": 0,
-  "trend_template_pass_count": 626,
+  "trend_template_pass_count": 692,
   "utility_screen_pass_count": 0,
   "emerging_leader_count": 0,
-  "data_quality_warnings": 1389,
-  "calculation_seconds": 20.31
+  "data_quality_warnings": 1385,
+  "calculation_seconds": 19.337
 }
