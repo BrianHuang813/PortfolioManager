@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-26",
+  "benchmark": "QQQ",
+  "close": 712.2000122070312,
+  "high_200d": 759.6599731445312,
+  "days_since_200d_high": 14,
+  "drawdown_from_200d_high": -0.062475268692971375,
+  "ma50": 725.0779858398438,
+  "ma200": 676.567523803711,
+  "utility_active": true,
+  "utility_window": 14,
+  "state": "CORRECTION"
+}
