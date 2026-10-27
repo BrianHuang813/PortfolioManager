@@ -62,7 +62,7 @@ equal highs, measured in trading-session positions. Searching only today's
 200-session maximum cannot express the `>200` state. A missing observable
 high event causes an explicit error rather than inventing a window.
 
-Utility activates only at 21–200 sessions. Windows use Python `round` on
+Utility activates only at 10–200 sessions. Windows use Python `round` on
 25%, 50%, 75%, and 100% of the market window (minimum 1); this uses ties-to-even
 rounding. Returns use actual W-session intervals, weighted .4/.2/.2/.2,
 normalized by SPY and ranked with Fred's qcut convention. Tied scores can

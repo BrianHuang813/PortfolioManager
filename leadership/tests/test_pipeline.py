@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import shutil
 import sys
 import types
 import numpy as np
@@ -89,3 +90,27 @@ def test_separate_extended_spy_preserves_annual_inputs(tmp_path, monkeypatch, co
     original = pd.read_csv(tmp_path / 'output/rs_stocks.csv').set_index('Ticker')
     assert frame.set_index('Ticker').loc['T00', 'Annual_RS'] == original.loc['T00', 'Percentile']
     assert json.loads((tmp_path / 'data/price_history.json').read_text()) == baseline
+
+
+def qqq_inputs(path):
+    """Mirror the SPY fixture as a QQQ-referenced run: same stocks, QQQ replaces SPY as reference."""
+    prices = json.loads((path / 'data/price_history.json').read_text())
+    prices['QQQ'] = prices.pop('SPY')
+    (path / 'data/price_history_qqq.json').write_text(json.dumps(prices))
+    shutil.copytree(path / 'output', path / 'output_qqq')
+
+
+def test_qqq_benchmark_publishes_separate_files(tmp_path, monkeypatch, config):
+    fixture_data(tmp_path, monkeypatch)
+    qqq_inputs(tmp_path)
+    history_path = tmp_path / 'history/leadership_history_qqq.parquet'
+    frame, state, history = build(tmp_path, config, history_path, 'QQQ')
+    assert state['benchmark'] == 'QQQ'
+    assert not {'SPY', 'QQQ'} & set(frame.Ticker)
+    output, public = tmp_path / 'results', tmp_path / 'public'
+    publish(frame, state, output, public, tmp_path, history_path, history, 1.)
+    snapshot = json.loads((public / 'latest_qqq.json').read_text())
+    assert snapshot['market']['benchmark'] == 'QQQ'
+    assert not (public / 'latest.json').exists()
+    for name in ('leadership_stocks_qqq.csv', 'utility_screen_qqq.csv', 'emerging_leaders_qqq.csv', 'market_state_qqq.json', 'run_summary_qqq.json'):
+        assert (public / name).exists()

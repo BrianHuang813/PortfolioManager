@@ -47,7 +47,7 @@ jobs:
           if [ -n "$run_id" ]; then
             gh run download "$run_id" --name leadership-state --dir restored-state
             mkdir -p leadership/history
-            cp restored-state/history/leadership_history.parquet leadership/history/
+            cp restored-state/history/*.parquet leadership/history/
             cp restored-state/data_persist/ticker_info.json leadership/vendor/fred/data_persist/
           fi
       - name: Fetch, original Annual RS, and Leadership enrichment
@@ -55,7 +55,7 @@ jobs:
       - name: Prepare durable state
         run: |
           mkdir -p state/history state/data_persist
-          cp leadership/history/leadership_history.parquet state/history/
+          cp leadership/history/*.parquet state/history/
           cp leadership/vendor/fred/data_persist/ticker_info.json state/data_persist/
       - uses: actions/upload-artifact@v4
         with:

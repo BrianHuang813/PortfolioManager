@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchLeadership, leadershipBase } from '../services/leadership'
+import { fetchLeadership, fileSuffix, leadershipBase, type Benchmark } from '../services/leadership'
 import type { LeadershipStock } from '../types/leadership'
 import { LeadershipGuide } from '../components/leadership/LeadershipGuide'
 
@@ -10,7 +10,8 @@ const number = (value: number | null) => value == null ? '—' : value.toFixed(0
 const currency = (value: number | null) => value == null ? '—' : `$${value.toFixed(2)}`
 
 export function Leadership() {
-  const query = useQuery({ queryKey: ['leadership'], queryFn: fetchLeadership, staleTime: 300_000, retry: false })
+  const [benchmark, setBenchmark] = useState<Benchmark>('SPY')
+  const query = useQuery({ queryKey: ['leadership', benchmark], queryFn: () => fetchLeadership(benchmark), staleTime: 300_000, retry: false })
   const [filter, setFilter] = useState<Filter>('All')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
@@ -33,6 +34,8 @@ export function Leadership() {
       <div><p className="text-primary text-xs tracking-widest uppercase">Minervini · IBD-style RS</p>
         <h1 className="text-3xl font-display text-on-s mt-2">Leadership Engine</h1>
         <p className="text-muted mt-2 text-sm">年度強勢、修正期韌性與新興領導股觀察</p></div>
+      <div className="flex gap-2">{([['SPY', 'S&P 500 (SPY)'], ['QQQ', 'Nasdaq (QQQ)']] as const).map(([value, label]) =>
+        <button key={value} aria-pressed={benchmark === value} className={`px-4 py-2 ${benchmark === value ? 'bg-ch text-primary' : 'bg-cl text-muted'}`} onClick={() => { setBenchmark(value); setPage(0) }}>{label}</button>)}</div>
       <button className="px-4 py-2 bg-ch text-primary disabled:opacity-40" disabled={query.isFetching} onClick={() => void query.refetch()}>{query.isFetching ? '載入中…' : '更新資料'}</button>
     </div>
     {query.isLoading && <p role="status" className="text-muted">正在載入每日 Leadership 資料…</p>}
@@ -40,18 +43,18 @@ export function Leadership() {
     {market && <>
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          ['市場狀態', market.state], ['SPY 距高點', `${market.days_since_200d_high} 交易日`],
+          ['市場狀態', market.state], [`${benchmark} 距高點`, `${market.days_since_200d_high} 交易日`],
           ['Utility RS', market.utility_active ? `啟用 · ${market.utility_window} 日視窗` : '未啟用'],
           ['資料日期', market.date],
         ].map(([label, value]) => <div key={label} className="bg-cl p-4"><p className="text-muted text-xs">{label}</p><p className="text-on-s mt-2">{value}</p></div>)}
       </section>
       <p className="text-muted text-sm">股票 {query.data!.summary.universe_size.toLocaleString()} 檔 · 缺當期價格 {query.data!.summary.failed_tickers} 檔 · 品質標記 {query.data!.summary.data_quality_warnings} 檔。空值顯示「—」；首次執行尚無 RS 動能歷史。</p>
       <div className="flex flex-wrap gap-2">{filters.map(value => <button key={value} onClick={() => { setFilter(value); setPage(0); setSort(value === 'Utility Screen' || value === 'Emerging' ? 'Utility_RS' : 'Annual_RS') }} className={`px-3 py-2 text-sm ${filter === value ? 'bg-ch text-primary' : 'bg-cl text-muted'}`}>{value}</button>)}</div>
-      {!market.utility_active && filter === 'Utility Screen' && <p className="text-muted">Utility Screen 目前未啟用：距市場高點須介於 21–200 個交易日。</p>}
+      {!market.utility_active && filter === 'Utility Screen' && <p className="text-muted">Utility Screen 目前未啟用：距市場高點須介於 10–200 個交易日。</p>}
       <div className="flex flex-wrap gap-4 items-center">
         <input aria-label="搜尋股票" placeholder="Ticker / 公司 / Sector" className="bg-cl p-2 text-on-s" value={search} onChange={event => { setSearch(event.target.value); setPage(0) }} />
         <label className="text-muted text-sm">排序 <select className="bg-cl p-2 text-on-s" value={sort} onChange={event => { setSort(event.target.value as typeof sort); setPage(0) }}><option value="Annual_RS">Annual RS</option><option value="Utility_RS">Utility RS</option><option value="Annual_RS_Change_20D">RS 20D Change</option></select></label>
-        <a className="text-primary text-sm" href={`${leadershipBase}${filter === 'Utility Screen' ? 'utility_screen' : filter === 'Emerging' ? 'emerging_leaders' : 'leadership_stocks'}.csv`} download>下載 CSV</a>
+        <a className="text-primary text-sm" href={`${leadershipBase}${filter === 'Utility Screen' ? 'utility_screen' : filter === 'Emerging' ? 'emerging_leaders' : 'leadership_stocks'}${fileSuffix(benchmark)}.csv`} download>下載 CSV</a>
       </div>
       <div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead className="text-muted"><tr>{['Ticker', 'Price', 'Annual RS', 'Utility RS', 'Δ RS 20D', 'Trend', 'RS Line', '分類', '資料品質'].map(label => <th key={label} className="p-3 whitespace-nowrap">{label}</th>)}</tr></thead><tbody className="text-on-s">{rows.slice(currentPage * 50, (currentPage + 1) * 50).map(row => <tr key={row.Ticker} className="border-t border-white/5">
         <td className="p-3"><button className="text-primary" onClick={() => setSelected(row.Ticker)}>{row.Ticker}</button><p className="text-muted text-xs">{row.Company}</p></td>

@@ -12,6 +12,29 @@ describe('Leadership daily data', () => {
     await expect(fetchLeadership()).rejects.toThrow('尚無每日資料')
   })
 
+  it('loads the Nasdaq (QQQ) snapshot from its own file', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ status: 404, ok: false })
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(fetchLeadership('QQQ')).rejects.toThrow('尚無每日資料')
+    expect(fetchMock.mock.calls[0][0]).toMatch(/leadership\/latest_qqq\.json$/)
+  })
+
+  it('switches benchmark and reloads the matching snapshot', async () => {
+    const snapshot = {
+      market: { date: '2026-10-01', state: 'NORMAL', days_since_200d_high: 5, utility_active: false, utility_window: null },
+      summary: { universe_size: 0, failed_tickers: 0, data_quality_warnings: 0 },
+      stocks: [],
+    }
+    const fetchMock = vi.fn().mockResolvedValue({ status: 200, ok: true, json: async () => snapshot })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<QueryClientProvider client={new QueryClient()}><Leadership /></QueryClientProvider>)
+    expect(await screen.findByText('SPY 距高點')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Nasdaq (QQQ)' }))
+    expect(await screen.findByText('QQQ 距高點')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([url]) => /latest_qqq\.json$/.test(url))).toBe(true)
+    expect(screen.getByRole('link', { name: /下載/ }).getAttribute('href')).toMatch(/leadership_stocks_qqq\.csv$/)
+  })
+
   it('rejects SPA fallback HTML', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 200, ok: true, json: () => { throw new SyntaxError() } }))
     await expect(fetchLeadership()).rejects.toThrow('格式錯誤')
@@ -28,7 +51,7 @@ describe('Leadership daily data', () => {
     expect(await screen.findByText('TEST')).toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2)
     fireEvent.click(screen.getByText('Utility Screen'))
-    expect(screen.getByText(/須介於 21–200/)).toBeInTheDocument()
+    expect(screen.getByText(/須介於 10–200/)).toBeInTheDocument()
     expect(screen.queryByText('TEST')).not.toBeInTheDocument()
   })
 })

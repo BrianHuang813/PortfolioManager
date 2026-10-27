@@ -4,7 +4,7 @@ benchmark:
 annual_rs:
   weights: {p3: 0.40, p6: 0.20, p9: 0.20, p12: 0.20}
 utility:
-  activation_days_min: 21
+  activation_days_min: 10
   activation_days_max: 200
   weights: {q1: 0.40, q2: 0.20, q3: 0.20, q4: 0.20}
   rs_threshold: 85
