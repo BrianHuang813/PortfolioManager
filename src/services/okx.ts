@@ -56,7 +56,6 @@ async function fetchTradingBalance(cfg: OKXConfig): Promise<OKXDetail[]> {
   if (!res.ok) throw new Error(`OKX trading balance failed: ${res.status}`)
 
   const data = await res.json() as { code: string; msg: string; data: Array<{ details: OKXDetail[] }> }
-  console.log('[OKX trading] code:', data.code, 'msg:', data.msg, 'count:', data.data?.[0]?.details?.length ?? 0)
   if (data.code !== '0') throw new Error(`OKX trading API error ${data.code}: ${data.msg}`)
   return data.data?.[0]?.details ?? []
 }
@@ -67,14 +66,11 @@ async function fetchFundingBalance(cfg: OKXConfig): Promise<OKXDetail[]> {
   const headers = await buildOKXHeaders(cfg, 'GET', path)
   const res = await fetch(`${OKX_BASE}${path}`, { headers })
   if (!res.ok) {
-    console.log('[OKX funding] fetch failed:', res.status)
     return []
   }
 
   const data = await res.json() as { code: string; msg: string; data: OKXAssetBalance[] }
-  console.log('[OKX funding] code:', data.code, 'msg:', data.msg, 'count:', data.data?.length ?? 0)
   if (data.code !== '0') {
-    console.log('[OKX funding] API error, skipping:', data.code, data.msg)
     return []
   }
 
@@ -92,14 +88,11 @@ async function fetchSavingsBalance(cfg: OKXConfig): Promise<OKXDetail[]> {
   // Use Vercel proxy — OKX blocks CORS preflight for savings endpoint
   const res = await fetch(`/api/okx?path=${encodeURIComponent(path)}`, { headers })
   if (!res.ok) {
-    console.log('[OKX savings] fetch failed:', res.status)
     return []
   }
 
   const data = await res.json() as { code: string; msg: string; data: OKXSavingsBalance[] }
-  console.log('[OKX savings] code:', data.code, 'msg:', data.msg, 'count:', data.data?.length ?? 0)
   if (data.code !== '0') {
-    console.log('[OKX savings] skipping:', data.code, data.msg)
     return []
   }
 
@@ -127,14 +120,11 @@ async function fetchFlexibleLoan(cfg: OKXConfig): Promise<OKXLoanDetails> {
   const headers = await buildOKXHeaders(cfg, 'GET', path)
   const res = await fetch(`/api/okx?path=${encodeURIComponent(path)}`, { headers })
   if (!res.ok) {
-    console.log('[OKX loan] fetch failed:', res.status)
     return empty
   }
 
   const data = await res.json() as { code: string; msg: string; data: OKXFlexibleLoan[] }
-  console.log('[OKX loan] code:', data.code, 'msg:', data.msg, 'count:', data.data?.length ?? 0)
   if (data.code !== '0') {
-    console.log('[OKX loan] skipping:', data.code, data.msg)
     return empty
   }
 
@@ -150,7 +140,6 @@ async function fetchFlexibleLoan(cfg: OKXConfig): Promise<OKXLoanDetails> {
 
 export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
   const raw = getConfig<OKXConfig>(STORAGE_KEYS.okx)
-  console.log('[OKX] config loaded:', raw ? `apiKey=${raw.apiKey?.slice(0,6)}… secret=${raw.secret ? 'set' : 'missing'}` : 'null')
   if (!raw?.apiKey || !raw?.secret) return []
   const cfg: OKXConfig = {
     apiKey:     raw.apiKey.trim(),
@@ -162,16 +151,13 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
   // Fetch trading, funding, savings, and flexible loan in parallel; all but trading are non-fatal
   const [tradingDetails, fundingDetails, savingsDetails, loanDetails] = await Promise.all([
     fetchTradingBalance(cfg),
-    fetchFundingBalance(cfg).catch((e) => {
-      console.log('[OKX funding] error (non-fatal):', e)
+    fetchFundingBalance(cfg).catch(() => {
       return [] as OKXDetail[]
     }),
-    fetchSavingsBalance(cfg).catch((e) => {
-      console.log('[OKX savings] error (non-fatal):', e)
+    fetchSavingsBalance(cfg).catch(() => {
       return [] as OKXDetail[]
     }),
-    fetchFlexibleLoan(cfg).catch((e): OKXLoanDetails => {
-      console.log('[OKX loan] error (non-fatal):', e)
+    fetchFlexibleLoan(cfg).catch((): OKXLoanDetails => {
       return { collateral: [], loans: [] }
     }),
   ])
@@ -197,7 +183,6 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
     }
   }
 
-  console.log('[OKX] total merged count:', merged.length)
 
   // Fetch market prices for items in needsPriceLookup set (funding/savings items, or merged qty)
   // plus borrowed amounts, which are valued the same way and negated below
@@ -218,7 +203,6 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
         // Simple Earn, where OKX returns eqUsd=0 and there is no stablecoin-USDT ticker.
         if (d.ccy.toUpperCase() === 'USDT' || d.ccy.toUpperCase() === 'USDC') {
           d.eqUsd = d.eq
-          console.log(`[OKX] stablecoin valuation ${d.ccy}: $${d.eqUsd}`)
           return
         }
         try {
@@ -229,7 +213,6 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
           const price = parseFloat(json.data[0].last)
           const qty = parseFloat(d.eq)
           d.eqUsd = (qty * price).toString()
-          console.log(`[OKX] price lookup ${d.ccy} via ${instId}: $${price} → eqUsd=$${d.eqUsd}`)
         } catch {
           // non-fatal — item stays with eqUsd=0 and gets filtered below
         }
@@ -237,17 +220,14 @@ export async function fetchOKXHoldings(): Promise<HoldingRecord[]> {
     )
   }
 
-  merged.forEach((d) => console.log(`[OKX]   ${d.ccy}: eq=${d.eq} eqUsd=${d.eqUsd ?? '0'}`))
 
   // Filter: has any quantity AND has USD value
   const nonZero = merged.filter(
     (d) => parseFloat(d.eq) > 0 && parseFloat(d.eqUsd ?? '0') > 0.01,
   )
 
-  console.log('[OKX] non-zero (with USD value) count:', nonZero.length)
 
   const debts = loanDetails.loans.filter((d) => parseFloat(d.eqUsd ?? '0') > 0.01)
-  debts.forEach((d) => console.log(`[OKX]   loan ${d.ccy}: amt=${d.eq} eqUsd=-${d.eqUsd}`))
 
   return [...nonZero.map(normalizeOKX), ...debts.map(normalizeOKXDebt)]
 }

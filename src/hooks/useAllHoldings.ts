@@ -11,6 +11,7 @@ import { fetchBitcoinHoldings } from '../services/bitcoin'
 import { saveSnapshot } from '../utils/snapshot'
 import { loadCachedHoldings, saveCachedHoldings } from '../utils/holdingsCache'
 import { mergeAliasHoldings } from '../utils/mergeAliasHoldings'
+import { filterSmallHoldings } from '../utils/filterSmallHoldings'
 import { useAppStore } from '../store/useAppStore'
 import { REFRESH_INTERVAL_MS } from '../config/constants'
 import type { HoldingRecord, Platform } from '../types/holdings'
@@ -87,7 +88,7 @@ async function fetchAllHoldings(): Promise<FetchResult> {
   collect('bitcoin', bitcoinResult)
 
   return {
-    holdings: mergeAliasHoldings(holdings),
+    holdings: filterSmallHoldings(mergeAliasHoldings(holdings)),
     platformErrors,
     futuWarning,
     canSaveSnapshot,

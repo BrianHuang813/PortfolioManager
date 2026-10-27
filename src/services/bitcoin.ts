@@ -63,8 +63,7 @@ export async function fetchBitcoinHoldings(): Promise<HoldingRecord[]> {
     ...btcAddresses.map((addr) =>
       fetchBTCBalanceSat(addr)
         .then((sat) => ({ addr, sat, ok: true as const }))
-        .catch((e) => {
-          console.log(`[Bitcoin] fetch failed for ${addr.slice(0, 12)}…:`, e)
+        .catch(() => {
           return { addr, sat: 0, ok: false as const }
         }),
     ),
@@ -88,7 +87,6 @@ export async function fetchBitcoinHoldings(): Promise<HoldingRecord[]> {
     if (marketValue < 0.01) continue
 
     const short = `${result.addr.slice(0, 6)}...${result.addr.slice(-4)}`
-    console.log(`[Bitcoin] ${short}: ${qty.toFixed(8)} BTC = $${marketValue.toFixed(2)}`)
 
     holdings.push({
       symbol: 'BTC',

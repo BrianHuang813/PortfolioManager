@@ -75,7 +75,6 @@ export async function fetchZerionHoldings(): Promise<HoldingRecord[]> {
     // Zerion only supports EVM addresses (0x...) — skip Bitcoin/Solana native addresses
     .filter((a) => {
       if (!a.startsWith('0x')) {
-        console.log(`[Zerion] skipping non-EVM address: ${a.slice(0, 12)}…`)
         return false
       }
       return true
