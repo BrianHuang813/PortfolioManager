@@ -2,13 +2,8 @@ import type { LeadershipSnapshot } from '../types/leadership'
 
 export const leadershipBase = `${import.meta.env.BASE_URL}leadership/`
 
-export type Benchmark = 'SPY' | 'QQQ'
-
-// SPY keeps the original file names; QQQ files carry a _qqq suffix.
-export const fileSuffix = (benchmark: Benchmark) => benchmark === 'QQQ' ? '_qqq' : ''
-
-export async function fetchLeadership(benchmark: Benchmark = 'SPY'): Promise<LeadershipSnapshot> {
-  const response = await fetch(`${leadershipBase}latest${fileSuffix(benchmark)}.json`, { cache: 'no-cache' })
+export async function fetchLeadership(): Promise<LeadershipSnapshot> {
+  const response = await fetch(`${leadershipBase}latest.json`, { cache: 'no-cache' })
   if (response.status === 404) throw new Error('尚無每日資料。請先執行 Leadership 管線並將結果隨網站部署。')
   if (!response.ok) throw new Error(`Leadership 資料載入失敗 (${response.status})`)
   let payload: unknown

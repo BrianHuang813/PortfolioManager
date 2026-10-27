@@ -23,12 +23,6 @@ from universe import is_derivative, prune_derivatives
 
 ROOT = Path(__file__).resolve().parent
 FRED = ROOT / 'vendor' / 'fred'
-BENCHMARKS = ('SPY', 'QQQ')
-
-
-def suffix(symbol):
-    # SPY keeps the original file names; every other benchmark gets its own set.
-    return '' if symbol == 'SPY' else f'_{symbol.lower()}'
 
 
 def fetch_and_rank(cached=False, config=None, refresh_market=False):
@@ -51,47 +45,37 @@ def fetch_and_rank(cached=False, config=None, refresh_market=False):
             # Original annual inputs remain untouched. A separate longer SPY
             # series makes high events >200 sessions ago observable.
             days = 365 * config['benchmark']['history_years']
-            prices = yf.download(list(BENCHMARKS), start=date.today() - timedelta(days=days),
+            prices = yf.download('SPY', start=date.today() - timedelta(days=days),
                                  end=date.today(), auto_adjust=True, progress=False, ignore_tz=True)
-            parsed = rs_data.parse_batch_download(prices, list(BENCHMARKS))
-            for symbol in BENCHMARKS:
-                if not parsed.get(symbol):
-                    raise ValueError(f'Extended {symbol} history fetch failed')
-                (FRED / 'data' / f'market_history{suffix(symbol)}.json').write_text(
-                    json.dumps({'candles': parsed[symbol]}), encoding='utf-8')
+            candles = rs_data.parse_batch_download(prices, ['SPY']).get('SPY', [])
+            if not candles:
+                raise ValueError('Extended SPY history fetch failed')
+            (FRED / 'data' / 'market_history.json').write_text(json.dumps({'candles': candles}), encoding='utf-8')
         logging.info('Excluded %d warrants/rights/units from ranking', prune_derivatives(FRED))
-        rank_nasdaq_reference(rs_ranking)
+        save_nasdaq100(rs_data)
         rs_ranking.rankings()
     finally:
         os.chdir(previous)
 
 
-def rank_nasdaq_reference(rs_ranking):
-    """Run the unchanged ranker once against QQQ; output goes to output_qqq/, SPY ranking runs after."""
-    market = FRED / 'data' / 'market_history_qqq.json'
-    if not market.exists():
-        logging.warning('No QQQ history cached; skipping the QQQ ranking')
-        return
-    prices = json.loads((FRED / 'data' / 'price_history.json').read_text(encoding='utf-8'))
-    qqq = {t: e for t, e in prices.items() if t != 'SPY'}
-    # Same number of sessions as SPY's series, so the ranker's tail windows line up like the original.
-    candles = json.loads(market.read_text(encoding='utf-8'))['candles'][-len(prices['SPY']['candles']):]
-    qqq['QQQ'] = {**prices['SPY'], 'candles': candles}
-    qqq_file = FRED / 'data' / 'price_history_qqq.json'
-    qqq_file.write_text(json.dumps(qqq), encoding='utf-8')
-    original = rs_ranking.PRICE_DATA, rs_ranking.REFERENCE_TICKER
-    rs_ranking.PRICE_DATA, rs_ranking.REFERENCE_TICKER = str(qqq_file), 'QQQ'
+def save_nasdaq100(rs_data):
+    """Cache Nasdaq-100 members; if Wikipedia fails, keep the members of the last published snapshot."""
+    members = []
     try:
-        rs_ranking.rankings()
-    finally:
-        rs_ranking.PRICE_DATA, rs_ranking.REFERENCE_TICKER = original
-    shutil.rmtree(FRED / 'output_qqq', ignore_errors=True)
-    shutil.move(str(FRED / 'output'), str(FRED / 'output_qqq'))
-    (FRED / 'output').mkdir()
+        members = sorted(rs_data.get_nq100_tickers())
+        if len(members) < 90:
+            raise ValueError(f'only {len(members)} Nasdaq-100 members parsed')
+    except Exception as error:
+        previous = ROOT.parent / 'public' / 'leadership' / 'latest.json'
+        logging.warning('Nasdaq-100 list unavailable (%s); reusing the last published members', error)
+        if previous.exists():
+            stocks = json.loads(previous.read_text(encoding='utf-8'))['stocks']
+            members = sorted(s['Ticker'] for s in stocks if s.get('Nasdaq100'))
+    (FRED / 'data' / 'nasdaq100.json').write_text(json.dumps(members), encoding='utf-8')
 
 
-def read_inputs(directory, symbol='SPY'):
-    data = json.loads((directory / 'data' / f'price_history{suffix(symbol)}.json').read_text(encoding='utf-8'))
+def read_inputs(directory):
+    data = json.loads((directory / 'data' / 'price_history.json').read_text(encoding='utf-8'))
     manifest = directory / 'data' / 'universe.json'
     universe = json.loads(manifest.read_text(encoding='utf-8')) if manifest.exists() else data
     info_file = directory / 'data_persist' / 'ticker_info.json'
@@ -105,32 +89,31 @@ def read_inputs(directory, symbol='SPY'):
         candles.index = dates
         candles = candles.sort_index().loc[lambda f: ~f.index.duplicated(keep='last')]
         frames[ticker] = candles
-    if symbol not in frames:
-        raise ValueError(f'{symbol} fetch failed; refusing to publish an incomplete market snapshot')
-    benchmark = frames[symbol].close.astype(float)
-    extended = directory / 'data' / f'market_history{suffix(symbol)}.json'
+    if 'SPY' not in frames:
+        raise ValueError('SPY fetch failed; refusing to publish an incomplete market snapshot')
+    benchmark = frames['SPY'].close.astype(float)
+    extended = directory / 'data' / 'market_history.json'
     if extended.exists():
         candles = pd.DataFrame(json.loads(extended.read_text(encoding='utf-8'))['candles'])
         candles.index = pd.to_datetime(candles.datetime, unit='s', utc=True).dt.tz_localize(None).dt.normalize()
         benchmark = candles.sort_index().loc[lambda f: ~f.index.duplicated(keep='last'), 'close'].astype(float)
-        if benchmark.index[-1] != frames[symbol].index[-1]:
-            raise ValueError(f'Extended and annual {symbol} snapshots have different dates')
-    close = pd.DataFrame({t: f.close for t, f in frames.items() if t not in BENCHMARKS}).reindex(benchmark.index)
+        if benchmark.index[-1] != frames['SPY'].index[-1]:
+            raise ValueError('Extended and annual SPY snapshots have different dates')
+    close = pd.DataFrame({t: f.close for t, f in frames.items() if t != 'SPY'}).reindex(benchmark.index)
     close = close.where(close > 0)
-    volume = pd.DataFrame({t: f.volume if 'volume' in f else pd.Series(dtype=float) for t, f in frames.items() if t not in BENCHMARKS}).reindex(benchmark.index)
+    volume = pd.DataFrame({t: f.volume if 'volume' in f else pd.Series(dtype=float) for t, f in frames.items() if t != 'SPY'}).reindex(benchmark.index)
     # Keep fetch failures visible as null columns, without ranking them.
-    tickers = sorted(set(universe) - set(BENCHMARKS))
+    tickers = sorted(set(universe) - {'SPY'})
     close = close.reindex(columns=tickers)
     volume = volume.reindex(columns=tickers)
     return data, universe, info, close, volume, benchmark
 
 
-def build(directory, config, history_path, symbol='SPY'):
-    data, universe, info, close, volume, benchmark = read_inputs(directory, symbol)
-    state = market_state(benchmark, config, symbol)
-    ranked = directory / f'output{suffix(symbol)}'
-    original = pd.read_csv(ranked / 'rs_stocks.csv').set_index('Ticker')
-    industries = pd.read_csv(ranked / 'rs_industries.csv').set_index('Industry')
+def build(directory, config, history_path):
+    data, universe, info, close, volume, benchmark = read_inputs(directory)
+    state = market_state(benchmark, config)
+    original = pd.read_csv(directory / 'output' / 'rs_stocks.csv').set_index('Ticker')
+    industries = pd.read_csv(directory / 'output' / 'rs_industries.csv').set_index('Industry')
     frame = pd.DataFrame(index=close.columns)
     frame['Ticker'] = frame.index
     frame['Date'] = state['date']
@@ -148,6 +131,9 @@ def build(directory, config, history_path, symbol='SPY'):
     frame['Annual_RS_Rank'] = original.Rank.reindex(frame.index).where(enough)
     frame['Annual_RS_Eligibility'] = np.where(~enough, 'MISSING_HISTORY',
         np.where(frame.Annual_RS.isna(), 'FRED_EXCLUDED', 'VALID'))
+    members_file = directory / 'data' / 'nasdaq100.json'
+    members = set(json.loads(members_file.read_text(encoding='utf-8'))) if members_file.exists() else set()
+    frame['Nasdaq100'] = frame.index.isin(members)
     frame['Utility_Active'] = state['utility_active']
     frame['Utility_Window'] = state['utility_window']
     frame['Utility_RS'] = utility_rs(close, benchmark, state, config['utility'])
@@ -200,16 +186,15 @@ def build(directory, config, history_path, symbol='SPY'):
 def publish(frame, state, output, public, directory, history_path, history, elapsed):
     output.mkdir(parents=True, exist_ok=True)
     public.mkdir(parents=True, exist_ok=True)
-    tag = suffix(state['benchmark'])
     utility = frame[frame.Utility_Screen_Pass].sort_values(['Utility_RS', 'Annual_RS_Change_20D'], ascending=False, na_position='last')
     emerging = frame[frame.Emerging_Leader].sort_values(['Utility_RS', 'Annual_RS_Change_20D', 'Annual_RS'], ascending=False, na_position='last')
     for name, table in [('leadership_stocks', frame), ('utility_screen', utility), ('emerging_leaders', emerging)]:
-        table.to_csv(output / f'{name}{tag}.csv', index=False)
-        shutil.copyfile(output / f'{name}{tag}.csv', public / f'{name}{tag}.csv')
+        table.to_csv(output / f'{name}.csv', index=False)
+        shutil.copyfile(output / f'{name}.csv', public / f'{name}.csv')
     for name in ('rs_stocks.csv', 'rs_industries.csv', 'rs_stocks_1.csv', 'rs_stocks_2.csv', 'RSRATING.csv'):
-        source = directory / f'output{tag}' / name
+        source = directory / 'output' / name
         if source.exists():
-            shutil.copyfile(source, output / f'{Path(name).stem}{tag}.csv')
+            shutil.copyfile(source, output / name)
     summary = dict(run_date=state['date'], universe_size=len(frame),
         processed_tickers=int(frame.Price.notna().sum()), failed_tickers=int(frame.Price.isna().sum()),
         fetch_failed_tickers=int(frame.Price_Last_Date.isna().sum()),
@@ -220,12 +205,12 @@ def publish(frame, state, output, public, directory, history_path, history, elap
         emerging_leader_count=len(emerging), data_quality_warnings=int(frame.data_quality_flag.ne('OK').sum()),
         calculation_seconds=round(elapsed, 3))
     for name, value in [('market_state', state), ('run_summary', summary)]:
-        (output / f'{name}{tag}.json').write_text(json.dumps(value, indent=2, allow_nan=False), encoding='utf-8')
-        shutil.copyfile(output / f'{name}{tag}.json', public / f'{name}{tag}.json')
+        (output / f'{name}.json').write_text(json.dumps(value, indent=2, allow_nan=False), encoding='utf-8')
+        shutil.copyfile(output / f'{name}.json', public / f'{name}.json')
     payload = dict(market=state, summary=summary, stocks=json.loads(frame.to_json(orient='records')))
-    temporary = public / f'latest{tag}.tmp.json'
+    temporary = public / 'latest.tmp.json'
     temporary.write_text(json.dumps(payload, allow_nan=False), encoding='utf-8')
-    temporary.replace(public / f'latest{tag}.json')
+    temporary.replace(public / 'latest.json')
     save_history(history_path, history, frame)
     logging.info('%s', json.dumps(summary))
     return summary
@@ -252,13 +237,8 @@ def main():
         fetch_and_rank(args.cached, config, args.refresh_market)
     started = time.perf_counter()
     directory = args.input or FRED
-    for symbol in BENCHMARKS:
-        if symbol != 'SPY' and not (directory / 'data' / f'price_history{suffix(symbol)}.json').exists():
-            logging.warning('No %s inputs found; skipping that benchmark', symbol)
-            continue
-        history_path = args.history.with_name(f'{args.history.stem}{suffix(symbol)}{args.history.suffix}')
-        frame, state, history = build(directory, config, history_path, symbol)
-        publish(frame, state, args.output, args.public, directory, history_path, history, time.perf_counter() - started)
+    frame, state, history = build(directory, config, args.history)
+    publish(frame, state, args.output, args.public, directory, args.history, history, time.perf_counter() - started)
 
 
 if __name__ == '__main__':

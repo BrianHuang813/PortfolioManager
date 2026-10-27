@@ -22,10 +22,10 @@ const classifications = [
 ]
 
 const indicators = [
-  ['Annual RS', '約 3／6／9／12 個月累積報酬，以 40%／20%／20%／20% 加權，再與所選基準（SPY 或 QQQ）正規化並做 0–99 排名。95 大致代表前 5%，不是漲幅 95%；屬於 IBD-style 近似排名。'],
+  ['Annual RS', '約 3／6／9／12 個月累積報酬，以 40%／20%／20%／20% 加權，再與 SPY 正規化並做 0–99 排名。95 大致代表前 5%，不是漲幅 95%；屬於 IBD-style 近似排名。'],
   ['Utility RS', '依市場距高點的交易日數調整短期視窗，觀察修正期間的抗跌與轉強表現。排名越高，相對強勢越明顯；不要求股票本身一定上漲。'],
   ['Δ RS 20D', '今天的 Annual RS 減去 20 個交易日前的 Annual RS。78 →92 顯示 +14，代表排名提升 14 點，不是股價上漲 14%。'],
-  ['RS Line', '股票調整後收盤價 ÷ 基準調整後收盤價。線向上代表這段期間跑贏所選基準（SPY 或 QQQ）；它是價格比值，不是 0–99 排名。'],
+  ['RS Line', '股票調整後收盤價 ÷ SPY 調整後收盤價。線向上代表這段期間跑贏 SPY；它是價格比值，不是 0–99 排名。'],
   ['RS Line 新高／領先價格', '「新高」表示 RS Line 到達近 252 個交易日高點（容許 0.01% 誤差）；「領先價格」表示 RS Line 已創高，但股價尚未到自身 52 週高點。'],
   ['Industry RS／Sector RS', 'Industry RS 為同產業股票的原始年度相對分數平均值；Sector RS 為同板塊 Annual RS 的中位數。各自另有 Percentile 百分位欄位，原始分數與百分位需分開解讀。'],
 ]
@@ -58,7 +58,7 @@ export function LeadershipGuide() {
     <details className="bg-cl p-5">
       <summary className="text-on-s font-semibold cursor-pointer">Utility RS 的視窗、算法與 Utility Screen</summary>
       <div className="mt-4 space-y-4 text-sm text-muted leading-relaxed">
-        <p>N 是所選基準（SPY 或 QQQ）距最近一次收盤創下 200 日滾動高點的交易日數。只有 10 ≤ N ≤200 時啟用 Utility；其餘時間顯示「—」。這個市場狀態依離高點的時間判定，沒有要求基準必須跌滿 10%。</p>
+        <p>N 是 SPY 距最近一次收盤創下 200 日滾動高點的交易日數。只有 10 ≤ N ≤200 時啟用 Utility；其餘時間顯示「—」。這個市場狀態依離高點的時間判定，沒有要求 SPY 必須跌滿 10%。</p>
         <p>四個視窗為 N 的 25%、50%、75%、100%，四捨五入到整數交易日（正好半日時取最近的偶數），最少 1 日。每個視窗都從今天往回看，彼此重疊；最近的一段權重最大。</p>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -67,7 +67,7 @@ export function LeadershipGuide() {
             <tbody><tr>{['權重', '40%', '20%', '20%', '20%'].map((value, index) => index === 0 ? <th key={index} scope="row" className="p-2 font-medium">{value}</th> : <td key={index} className="p-2">{value}</td>)}</tr></tbody>
           </table>
         </div>
-        <p>加權報酬 S＝0.4 ×第一視窗報酬＋0.2 ×第二視窗報酬＋0.2 ×第三視窗報酬＋0.2 ×第四視窗報酬。基準使用相同視窗與權重，再計算（1＋S股票）÷（1＋S_基準），對符合資料條件的股票做 0–99 百分位排名。相同分數可能合併排名區間；同一天 SPY 分母一致，因此排名主要反映股票的加權報酬。</p>
+        <p>加權報酬 S＝0.4 ×第一視窗報酬＋0.2 ×第二視窗報酬＋0.2 ×第三視窗報酬＋0.2 ×第四視窗報酬。SPY 使用相同視窗與權重，再計算（1＋S股票）÷（1＋S_SPY），對符合資料條件的股票做 0–99 百分位排名。相同分數可能合併排名區間；同一天 SPY 分母一致，因此排名主要反映股票的加權報酬。</p>
         <p>Utility Screen 是再加上條件的名單：Utility 啟用、Utility RS ≥85、價格高於 MA200、MA50 高於 MA200、20 日平均每日成交金額至少 1 億美元，且價格不低於 200 日高點的 75%。成交金額逐日以收盤價 ×成交量計算後取平均；此篩選不要求價格高於 52 週低點 30%。</p>
       </div>
     </details>
