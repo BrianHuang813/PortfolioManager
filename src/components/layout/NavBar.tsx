@@ -14,8 +14,8 @@ interface NavBarProps {
 
 const NAV_LINKS = [
   { to: '/', label: 'Dashboard' },
-  { to: '/position-management', label: 'Positions' },
   { to: '/leadership', label: 'Leadership' },
+  { to: '/position-management', label: 'Positions' },
   { to: '/settings', label: 'Settings' },
 ]
 
