@@ -68,7 +68,7 @@ export function TotalAssetsCard({ holdings, isLoading }: Props) {
 
       {/* Hero number */}
       <div className="flex items-end gap-2 mb-6">
-        <span className="font-display text-display-lg text-primary tabular-nums leading-none">
+        <span className="font-display text-display-md sm:text-display-lg text-primary tabular-nums leading-none">
           {whole}
         </span>
         <span className="font-display text-display-sm text-muted tabular-nums leading-none mb-1">

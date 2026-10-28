@@ -56,7 +56,7 @@ export function Dashboard() {
           </section>
 
           {/* Performance chart — sits in cl block */}
-          <section className="bg-cl px-6 py-5">
+          <section className="bg-cl px-4 md:px-6 py-5">
             <PerformanceChart snapshotRevision={snapshotRevision} />
           </section>
 

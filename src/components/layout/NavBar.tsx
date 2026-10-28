@@ -12,37 +12,34 @@ interface NavBarProps {
   isFetching: boolean
 }
 
+const NAV_LINKS = [
+  { to: '/', label: 'Dashboard' },
+  { to: '/position-management', label: 'Positions' },
+  { to: '/leadership', label: 'Leadership' },
+  { to: '/settings', label: 'Settings' },
+]
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `px-3 py-1 font-body text-label-md uppercase tracking-[0.06em] whitespace-nowrap ${
+    isActive
+      ? 'text-primary bg-ch'
+      : 'text-muted hover:text-on-s hover:bg-cl'
+  }`
+
 export function NavBar({ onRefresh, isFetching }: NavBarProps) {
   return (
     <header className="sticky top-0 z-40 bg-cll" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-      <div className="max-w-screen-xl mx-auto px-6 flex items-center justify-between h-12">
+      <div className="max-w-screen-xl mx-auto px-4 md:px-6 flex items-center justify-between h-12">
 
         {/* Wordmark */}
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-4 md:gap-8">
           <span className="font-display font-800 text-[0.9rem] tracking-[0.12em] uppercase text-primary">
             Ledger
           </span>
 
-          <nav className="flex items-center gap-1">
-            {[
-              { to: '/', label: 'Dashboard' },
-              { to: '/position-management', label: 'Positions' },
-              { to: '/leadership', label: 'Leadership' },
-              { to: '/settings', label: 'Settings' },
-            ].map(({ to, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === '/'}
-                className={({ isActive }) =>
-                  `px-3 py-1 font-body text-label-md uppercase tracking-[0.06em] ${
-                    isActive
-                      ? 'text-primary bg-ch'
-                      : 'text-muted hover:text-on-s hover:bg-cl'
-                  }`
-                }
-                style={{ transition: 'none' }}
-              >
+          <nav className="hidden md:flex items-center gap-1">
+            {NAV_LINKS.map(({ to, label }) => (
+              <NavLink key={to} to={to} end={to === '/'} className={navLinkClass} style={{ transition: 'none' }}>
                 {label}
               </NavLink>
             ))}
@@ -76,6 +73,15 @@ export function NavBar({ onRefresh, isFetching }: NavBarProps) {
           </button>
         </div>
       </div>
+
+      {/* Phones: links move to their own horizontally scrollable row */}
+      <nav className="md:hidden flex items-center gap-1 overflow-x-auto px-4 pb-2">
+        {NAV_LINKS.map(({ to, label }) => (
+          <NavLink key={to} to={to} end={to === '/'} className={navLinkClass} style={{ transition: 'none' }}>
+            {label}
+          </NavLink>
+        ))}
+      </nav>
     </header>
   )
 }

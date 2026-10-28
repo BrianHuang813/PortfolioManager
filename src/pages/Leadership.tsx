@@ -34,7 +34,7 @@ export function Leadership() {
       <div><p className="text-primary text-xs tracking-widest uppercase">Minervini · IBD-style RS</p>
         <h1 className="text-3xl font-display text-on-s mt-2">Leadership Engine</h1>
         <p className="text-muted mt-2 text-sm">年度強勢、修正期韌性與新興領導股觀察</p></div>
-      <div className="flex gap-2">{([['all', '全市場'], ['nasdaq100', 'Nasdaq-100']] as const).map(([value, label]) =>
+      <div className="flex gap-2">{([['all', 'S&P'], ['nasdaq100', 'Nasdaq-100']] as const).map(([value, label]) =>
         <button key={value} aria-pressed={scope === value} className={`px-4 py-2 ${scope === value ? 'bg-ch text-primary' : 'bg-cl text-muted'}`} onClick={() => { setScope(value); setPage(0) }}>{label}</button>)}</div>
       <button className="px-4 py-2 bg-ch text-primary disabled:opacity-40" disabled={query.isFetching} onClick={() => void query.refetch()}>{query.isFetching ? '載入中…' : '更新資料'}</button>
     </div>
@@ -52,7 +52,7 @@ export function Leadership() {
       <div className="flex flex-wrap gap-2">{filters.map(value => <button key={value} onClick={() => { setFilter(value); setPage(0); setSort(value === 'Utility Screen' || value === 'Emerging' ? 'Utility_RS' : 'Annual_RS') }} className={`px-3 py-2 text-sm ${filter === value ? 'bg-ch text-primary' : 'bg-cl text-muted'}`}>{value}</button>)}</div>
       {!market.utility_active && filter === 'Utility Screen' && <p className="text-muted">Utility Screen 目前未啟用：距市場高點須介於 10–200 個交易日。</p>}
       <div className="flex flex-wrap gap-4 items-center">
-        <input aria-label="搜尋股票" placeholder="Ticker / 公司 / Sector" className="bg-cl p-2 text-on-s" value={search} onChange={event => { setSearch(event.target.value); setPage(0) }} />
+        <input aria-label="搜尋股票" placeholder="Ticker / 公司 / Sector" className="bg-cl p-2 text-on-s w-full sm:w-auto" value={search} onChange={event => { setSearch(event.target.value); setPage(0) }} />
         <label className="text-muted text-sm">排序 <select className="bg-cl p-2 text-on-s" value={sort} onChange={event => { setSort(event.target.value as typeof sort); setPage(0) }}><option value="Annual_RS">Annual RS</option><option value="Utility_RS">Utility RS</option><option value="Annual_RS_Change_20D">RS 20D Change</option></select></label>
         <a className="text-primary text-sm" href={`${leadershipBase}${filter === 'Utility Screen' ? 'utility_screen' : filter === 'Emerging' ? 'emerging_leaders' : 'leadership_stocks'}.csv`} download>下載 CSV</a>
       </div>
