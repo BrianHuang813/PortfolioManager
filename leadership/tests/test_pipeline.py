@@ -4,7 +4,7 @@ import sys
 import types
 import numpy as np
 import pandas as pd
-from pipeline import build, publish, read_inputs
+from pipeline import build, parse_nasdaq100, publish, read_inputs
 from rs_history import load_history
 
 
@@ -106,3 +106,8 @@ def test_nasdaq100_defaults_to_false_without_member_list(tmp_path, monkeypatch, 
     fixture_data(tmp_path, monkeypatch)
     frame, _, _ = build(tmp_path, config, tmp_path / 'history.parquet')
     assert not frame.Nasdaq100.any()
+
+
+def test_parse_nasdaq100_reads_symbols_from_nasdaq_api_payload():
+    payload = {'data': {'data': {'rows': [{'symbol': 'AAPL'}, {'symbol': ' goog '}, {'symbol': 'AAPL'}]}}}
+    assert parse_nasdaq100(payload) == ['AAPL', 'GOOG']

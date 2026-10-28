@@ -10,6 +10,7 @@ import time
 from datetime import date, timedelta
 import numpy as np
 import pandas as pd
+import requests
 import yaml
 from market_state import market_state
 from utility_rs import utility_rs
@@ -52,17 +53,26 @@ def fetch_and_rank(cached=False, config=None, refresh_market=False):
                 raise ValueError('Extended SPY history fetch failed')
             (FRED / 'data' / 'market_history.json').write_text(json.dumps({'candles': candles}), encoding='utf-8')
         logging.info('Excluded %d warrants/rights/units from ranking', prune_derivatives(FRED))
-        save_nasdaq100(rs_data)
+        save_nasdaq100()
         rs_ranking.rankings()
     finally:
         os.chdir(previous)
 
 
-def save_nasdaq100(rs_data):
-    """Cache Nasdaq-100 members; if Wikipedia fails, keep the members of the last published snapshot."""
+NASDAQ100_URL = 'https://api.nasdaq.com/api/quote/list-type/nasdaq100'
+
+
+def parse_nasdaq100(payload):
+    return sorted({row['symbol'].strip().upper() for row in payload['data']['data']['rows']})
+
+
+def save_nasdaq100():
+    """Cache Nasdaq-100 members; if Nasdaq's API fails, keep the members of the last published snapshot."""
     members = []
     try:
-        members = sorted(rs_data.get_nq100_tickers())
+        response = requests.get(NASDAQ100_URL, timeout=30, headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'})
+        response.raise_for_status()
+        members = parse_nasdaq100(response.json())
         if len(members) < 90:
             raise ValueError(f'only {len(members)} Nasdaq-100 members parsed')
     except Exception as error:
