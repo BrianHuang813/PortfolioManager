@@ -6,7 +6,7 @@
   "days_since_200d_high": 15,
   "drawdown_from_200d_high": -0.012103933288683866,
   "ma50": 766.6953430175781,
-  "ma200": 724.8131597900391,
+  "ma200": 724.8131588745117,
   "utility_active": true,
   "utility_window": 15,
   "state": "CORRECTION"
