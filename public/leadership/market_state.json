@@ -1,13 +1,13 @@
 {
-  "date": "2026-10-30",
+  "date": "2026-11-02",
   "benchmark": "SPY",
-  "close": 755.719970703125,
+  "close": 752.0999755859375,
   "high_200d": 779.0900268554688,
-  "days_since_200d_high": 18,
-  "drawdown_from_200d_high": -0.029996605458638692,
-  "ma50": 766.7748425292968,
-  "ma200": 725.9842343139649,
+  "days_since_200d_high": 19,
+  "drawdown_from_200d_high": -0.03464304552641673,
+  "ma50": 766.5403771972656,
+  "ma200": 726.3103564453126,
   "utility_active": true,
-  "utility_window": 18,
+  "utility_window": 19,
   "state": "CORRECTION"
 }
