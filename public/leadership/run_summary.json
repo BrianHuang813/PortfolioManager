@@ -1,17 +1,17 @@
 {
-  "run_date": "2026-11-03",
-  "universe_size": 6226,
+  "run_date": "2026-11-04",
+  "universe_size": 6225,
   "processed_tickers": 6222,
-  "failed_tickers": 4,
+  "failed_tickers": 3,
   "fetch_failed_tickers": 0,
-  "stale_tickers": 4,
+  "stale_tickers": 3,
   "annual_rs_valid_count": 5527,
   "utility_active": true,
-  "utility_window": 20,
-  "utility_rs_valid_count": 6188,
-  "trend_template_pass_count": 693,
-  "utility_screen_pass_count": 99,
-  "emerging_leader_count": 139,
-  "data_quality_warnings": 767,
-  "calculation_seconds": 18.693
+  "utility_window": 21,
+  "utility_rs_valid_count": 6185,
+  "trend_template_pass_count": 750,
+  "utility_screen_pass_count": 117,
+  "emerging_leader_count": 157,
+  "data_quality_warnings": 765,
+  "calculation_seconds": 13.067
 }
